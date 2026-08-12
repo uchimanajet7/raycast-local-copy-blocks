@@ -76,6 +76,8 @@ Configure a folder for every Markdown Source you use. MdClip needs at least one 
 
 MdClip recursively reads files with a `.md` extension, matched case-insensitively.
 
+Markdown contents must be valid UTF-8. If a file is not valid UTF-8, MdClip stops preview or copy and asks you to save the file as UTF-8.
+
 The following paths are excluded:
 
 - `.git`

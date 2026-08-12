@@ -40,7 +40,7 @@ MdClip の active release path は GitHub Release です。release owner / maint
 
 `.github/release-manifest.json` は、リリース準備コミットが表す GitHub Release の記述子です。次のリリースタグと changelog が確定したリリース準備時だけ更新し、公開後は次のリリース準備まで公開済み Release の値を保持します。未確定の次期バージョンを公開直後に仮設定しません。
 
-`v0.3.0` のリリース準備では、公開済みの `v0.2.0` を直前の GitHub Release として扱います。`v0.1.4` 以前は、Local Copy Blocks 時代を含むそれ以前のリリース履歴です。
+`v0.4.0` のリリース準備では、公開済みの `v0.3.0` を直前の GitHub Release として扱います。`v0.2.0` 以前は、Local Copy Blocks 時代を含むそれ以前のリリース履歴です。
 
 形式は以下とします。
 
@@ -62,14 +62,14 @@ MdClip の active release path は GitHub Release です。release owner / maint
 
 Store publish state は GitHub Release 作成 manifest には含めません。Store publish の管理対象は [Store publication prerequisites](#8-store-publication-prerequisites) で扱います。
 
-現在の manifest は、`v0.2.0` を直前の GitHub Release として `v0.3.0` を作成するリリース準備を指します。
+現在の manifest は、`v0.3.0` を直前の GitHub Release として `v0.4.0` を作成するリリース準備を指します。
 
 ```json
 {
-  "tag": "v0.3.0",
-  "title": "v0.3.0",
-  "previousGitHubReleaseTag": "v0.2.0",
-  "githubReleaseChangelogFile": ".github/release-changelog/v0.3.0.md"
+  "tag": "v0.4.0",
+  "title": "v0.4.0",
+  "previousGitHubReleaseTag": "v0.3.0",
+  "githubReleaseChangelogFile": ".github/release-changelog/v0.4.0.md"
 }
 ```
 

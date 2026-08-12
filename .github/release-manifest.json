@@ -1,6 +1,6 @@
 {
-  "tag": "v0.3.0",
-  "title": "v0.3.0",
-  "previousGitHubReleaseTag": "v0.2.0",
-  "githubReleaseChangelogFile": ".github/release-changelog/v0.3.0.md"
+  "tag": "v0.4.0",
+  "title": "v0.4.0",
+  "previousGitHubReleaseTag": "v0.3.0",
+  "githubReleaseChangelogFile": ".github/release-changelog/v0.4.0.md"
 }
