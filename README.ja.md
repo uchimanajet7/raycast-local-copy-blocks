@@ -120,9 +120,11 @@ Markdown 本文は、利用者がコピーアクションを実行した場合�
 
 ## ヘルプ
 
-導入、更新、クリーン再インストール、削除については [使い始める手順](docs/getting-started.ja.md) を参照してください。解決しない MdClip の問題は [GitHub Issues](https://github.com/uchimanajet7/mdclip/issues) で報告してください。
+導入、更新、クリーン再インストール、削除については [使い始める手順](docs/getting-started.ja.md) を参照してください。
 
-再現手順、実際の結果、期待する結果、MdClip、Raycast、macOS のバージョンを記載してください。非公開の Markdown 本文、クリップボードの内容、その他の機密情報は記載しないでください。
+通常の MdClip の問題は [GitHub Issues](https://github.com/uchimanajet7/mdclip/issues) で報告してください。再現手順、実際の結果、期待する結果、MdClip、Raycast、macOS のバージョンを記載してください。非公開の Markdown 本文、クリップボードの内容、その他の機密情報は記載しないでください。
+
+セキュリティ連絡先は MdClip メンテナーの [@uchimanajet7](https://github.com/uchimanajet7) です。脆弱性の可能性がある問題を報告する場合は、詳細を公開せず、非公開での連絡を希望する旨だけを GitHub Issue で知らせてください。メンテナーが非公開の連絡方法を案内します。
 
 ## 開発とメンテナンス
 
