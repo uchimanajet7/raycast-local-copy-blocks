@@ -168,7 +168,7 @@
     "format": "node scripts/format.mjs --write"
   },
   "dependencies": {
-    "@raycast/api": "^1.104.24",
+    "@raycast/api": "^1.104.25",
     "react": "^19.2.8"
   },
   "devDependencies": {
@@ -176,7 +176,7 @@
     "@types/node": "22.19.17",
     "@types/react": "^19.2.18",
     "esbuild": "^0.28.2",
-    "eslint": "^10.8.1",
+    "eslint": "^10.9.0",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3"
   },
