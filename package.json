@@ -168,7 +168,7 @@
     "format": "node scripts/format.mjs --write"
   },
   "dependencies": {
-    "@raycast/api": "^1.104.25",
+    "@raycast/api": "^2.0.3",
     "react": "^19.2.8"
   },
   "devDependencies": {
