@@ -160,7 +160,7 @@
     "demo:clean": "node scripts/demo-markdown-sources.mjs clean",
     "sync:readme-media": "node scripts/sync-readme-media.mjs",
     "icon:generate": "node scripts/generate-icon.mjs",
-    "build": "ray build -e dist",
+    "build": "ray build -e dist -o dist",
     "lint": "npm run check:dependencies && npm run check:release && npm run check:docs && npm run check:type && npm run check:lint && npm run check:format && npm run check:local",
     "lint:raycast": "ray lint",
     "fix-lint": "eslint src/** --fix && npm run format",
@@ -168,17 +168,18 @@
     "format": "node scripts/format.mjs --write"
   },
   "dependencies": {
-    "@raycast/api": "^1.104.25",
+    "@raycast/api": "^2.0.5",
     "react": "^19.2.8"
   },
   "devDependencies": {
     "@raycast/eslint-config": "^2.2.0",
     "@types/node": "22.19.17",
     "@types/react": "^19.2.18",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "esbuild": "^0.28.2",
     "eslint": "^10.9.0",
     "prettier": "^3.9.6",
-    "typescript": "^6.0.3"
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "allowScripts": {
     "esbuild": true

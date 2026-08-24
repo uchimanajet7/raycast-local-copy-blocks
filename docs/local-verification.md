@@ -45,7 +45,7 @@ install-script policyのtoolingとhardeningを含むnpm 11.17.0以上が必要�
 | `npm run check:local`         | `node scripts/local-verification.mjs`                                           | Raycast アプリに依存しないリポジトリ固有の確認                   |
 | `npm run update:dependencies` | `node scripts/update-dependencies.mjs`                                          | dependency更新、clean install、完全検証                          |
 | `npm run lint:raycast`        | `ray lint`                                                                      | 明示的な Raycast CLI lint                                        |
-| `npm run build`               | `ray build -e dist`                                                             | Raycast build 検証                                               |
+| `npm run build`               | `ray build -e dist -o dist`                                                     | 非対話のRaycast distribution build検証                           |
 | `npm run dev`                 | `ray develop`                                                                   | Raycast development mode で起動                                  |
 | `npm run demo:setup`          | `node scripts/demo-markdown-sources.mjs setup`                                  | ローカル確認用の demo Markdown Source folders を作成             |
 | `npm run demo:clean`          | `node scripts/demo-markdown-sources.mjs clean`                                  | ローカル確認用の demo Markdown Source folders を削除             |
@@ -56,7 +56,7 @@ install-script policyのtoolingとhardeningを含むnpm 11.17.0以上が必要�
 
 `npm run format`、`npm run fix-lint`、`npm run migrate`、`npm run update:dependencies`、`npm run icon:generate`、`npm run demo:setup`、`npm run demo:clean` はファイルを書き換える可能性があります。目的が明確な場合だけ実行します。
 
-application dependencyとGitHub Actionsの定期更新候補は `.github/dependabot.yml` のweekly Dependabot version updatesが提示します。npmのpatchとminor version updatesは一つのgrouped Pull Requestにまとめ、major version updateは依存関係ごとの個別Pull Requestとしてmaintainer decisionを明確にします。`@types/node`だけはregistryのlatestへ単独更新せず、local maintenance commandが`@raycast/api`のexact runtime contractへ同期します。maintainerはPull Requestのmanifest、lockfile、release notes、resolver結果、CI結果を確認し、互換性を判断してから採用します。自動merge、peer dependency override、自動publish、自動releaseは行いません。[Dependabot version updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependabot-version-updates) は更新Pull Requestとreviewの責任分担を説明し、[Dependabot options](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#groups--) はgroupを`update-types`でpatch、minor、majorに限定できることを説明しています。
+application dependencyとGitHub Actionsの定期更新候補は `.github/dependabot.yml` のweekly Dependabot version updatesが提示します。npmのpatchとminor version updatesは一つのgrouped Pull Requestにまとめ、major version updateは依存関係ごとの個別Pull Requestとしてmaintainer decisionを明確にします。`@types/node`だけはregistryのlatestへ単独更新せず、local maintenance commandが`@raycast/api`のexact type contractへ同期します。maintainerはPull Requestのmanifest、lockfile、release notes、resolver結果、CI結果を確認し、互換性を判断してから採用します。自動merge、peer dependency override、自動publish、自動releaseは行いません。[Dependabot version updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependabot-version-updates) は更新Pull Requestとreviewの責任分担を説明し、[Dependabot options](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#groups--) はgroupを`update-types`でpatch、minor、majorに限定できることを説明しています。
 
 ローカルでdependency候補を適用する場合は、現在のworking treeで次を実行します。このcommandはGitのclean/dirty状態を実行条件にせず、Git statusの検査、commit、stash、reset、restoreを行いません。
 
@@ -64,11 +64,21 @@ application dependencyとGitHub Actionsの定期更新候補は `.github/dependa
 npm run update:dependencies
 ```
 
+通常実行はdeclared range内を更新します。range外のmajor候補がある場合は、command outputが候補と次の明示許可commandを表示します。maintainerが全major候補を同じ解決単位で採用すると判断した場合だけ、次を実行します。
+
+```bash
+npm run update:dependencies -- --allow-major
+```
+
 このcommandは、Raycast migration、direct・transitive dependency、manifest、lockfile、clean install、verificationを一つの保守操作として扱います。開始時は実行中のNode.jsとnpmが`package.json`の`engines`範囲を満たすことだけを確認し、exact version、LTS line、`.node-version`との一致を要求しません。また、Node.jsの選定、install、切り替え、`.node-version`の更新、global npmの変更を行いません。最初のdependency policy検査では、旧update pathが残した修復可能なdirect dependency下限のdriftだけを許可し、それ以外のpolicyを確認します。続く現在のlockfileによるclean installが成功してから、dependency rangeを変更する前に最新の公式Raycast migrationを実行します。
 
-続いて [`npm outdated`](https://docs.npmjs.com/cli/v11/commands/npm-outdated/) でdirect dependencyごとの`current`、declared range内の`wanted`、registryの`latest`を記録します。install scriptを停止した `npm update --save` で、direct dependencyとtransitive dependencyをnpm自身のpeer dependency resolverにより更新し、解決したdirect versionを`package.json`と`package-lock.json`の両方へ保存します。`strict-peer-deps=true`で不成立の組み合わせは拒否します。MdClip自身がNode.js APIとReact JSXの型を使用するため、root manifestは`@types/node`と`@types/react`をdirect `devDependencies`として所有します。`@types/node`は解決済み`@raycast/api`がdependencyとoptional peerの両方で宣言する同一のexact versionへ同期し、`@types/react`はroot Reactと同じmajor/minorのcaret rangeで更新します。[Raycast changelog 1.46.0](https://developers.raycast.com/misc/changelog#1460---2023-01-18) は、エディタ補完のためNode/React typeをoptional API peer dependenciesとtemplateの`devDependencies`へ戻したことを説明しています。[`npm update`](https://docs.npmjs.com/cli/v11/commands/npm-update/) は通常は`package.json`を書き換えず、`--save`を指定した場合にdependency rangeも更新することを説明しています。
+続いて [`npm outdated`](https://docs.npmjs.com/cli/v11/commands/npm-outdated/) でdirect dependencyごとの`current`、declared range内の`wanted`、registryの`latest`を記録します。通常実行ではdeclared rangeを維持し、`--allow-major`実行ではcontract管理対象を除く全direct major候補のrangeをlatestへ一度に進めてから、install scriptを停止した `npm update --save` を一度実行します。direct dependencyとtransitive dependencyはnpm自身のpeer dependency resolverが同じgraphとして解決し、解決したdirect versionを`package.json`と`package-lock.json`の両方へ保存します。`strict-peer-deps=true`で不成立の組み合わせは拒否します。
 
-`@types/node`の同期でmanifestが変わった場合だけinstall scriptを停止した`npm install`を一度実行し、lockfileとinstall treeを再解決します。解決後は、各direct dependencyのmanifest下限がlockfileのresolved versionと一致すること、処理前よりresolved direct versionが低下していないこと、`current`が`wanted`と一致してdeclared range内の更新が残っていないことを機械検査します。`@types/node`のregistry latestとの差はRaycast runtime contractとして別表示し、maintainer decisionを永続的に要求しません。それ以外の`wanted`と`latest`の差は失敗として隠さず、`Maintainer decision required`としてdependency名とversion差を表示します。その後にdependency policy、clean `npm ci`、通常lint、Raycast build、Raycast lintを同じNode.js processで順番に実行します。[`npm ci`](https://docs.npmjs.com/cli/v11/commands/npm-ci/) はmanifestとlockfileが不一致なら停止し、manifestやlockfileを更新しないため、更新処理ではなく最終的な再現性検証として使います。
+MdClip自身がNode.js APIとReact JSXの型を使用するため、root manifestは`@types/node`と`@types/react`をdirect `devDependencies`として所有します。`@types/node`は採用する`@raycast/api` package metadataがdependencyとoptional peerの両方で宣言する同一のexact versionへmajor解決前から同期し、registry latestへ単独更新しません。`@types/react`はroot Reactと同じmajor/minorのcaret rangeで更新します。[Raycast changelog 1.46.0](https://developers.raycast.com/misc/changelog#1460---2023-01-18) は、エディタ補完のためNode/React typeをoptional API peer dependenciesとtemplateの`devDependencies`へ戻したことを説明しています。[`npm update`](https://docs.npmjs.com/cli/v11/commands/npm-update/) は通常は`package.json`を書き換えず、`--save`を指定した場合にdependency rangeも更新することを説明しています。
+
+TypeScript 7以降はCLIと従来のprogrammatic APIを同じpackageから提供しないため、`--allow-major`はofficial compatibility構成を適用します。`@typescript/native` aliasがregistry latestのTypeScript CLIと`tsc`を所有し、`typescript` aliasは`@typescript/typescript6`を指してESLint toolingへTypeScript 6 APIを提供します。これによりcompilerはlatestへ進めつつ、`@raycast/eslint-config`と`typescript-eslint`のpeer contractを維持します。[TypeScript 7 release guidance](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-60) はこのside-by-side alias構成を案内しています。
+
+`@types/node`の同期でmanifestが変わった場合だけinstall scriptを停止した`npm install`を一度実行し、lockfileとinstall treeを再解決します。解決後は、各direct dependencyまたはnpm aliasのmanifest下限がlockfileのresolved versionと一致すること、同じpackage identityのresolved direct versionが処理前より低下していないこと、`current`が`wanted`と一致してdeclared range内の更新が残っていないことを機械検査します。型契約管理対象は、選択中のversionとそれを要求するresolved `@raycast/api` version、および意図的に選択しなかったregistry latestを、更新矢印を使わず別々に表示します。通常実行でrange外majorが残る場合は`Maintainer decision required`と`npm run update:dependencies -- --allow-major`を表示し、`--allow-major`実行はmajor候補が残ったまま成功しません。未解決のrange外判断がない場合だけ`No unresolved dependency update decisions remain.`と表示します。その後にdependency policy、clean `npm ci`、通常lint、Raycast build、Raycast lintを同じNode.js processで順番に実行します。[`npm ci`](https://docs.npmjs.com/cli/v11/commands/npm-ci/) はmanifestとlockfileが不一致なら停止し、manifestやlockfileを更新しないため、更新処理ではなく最終的な再現性検証として使います。
 
 どの段階でも失敗した場合は処理を停止し、互換性を無視した更新、古いversionの独自探索、強制適用、自動復元を行いません。既存の未コミット変更と更新途中の変更が同じworking treeに残る場合があるため、maintainerはcommand outputと現在のGit diffを確認し、変更単位で次の対応を判断します。このcommand自体は変更をstash、commit、reset、restore、破棄しません。`@raycast/api`、React、runtime dependency、またはmigrationによるsource変更がある場合だけ、続けて `npm run dev` でMdClipのprimary taskを人間が確認します。development toolingだけの更新では、利用者向け動作に変化がなければGUI確認を必須にしません。[Raycast migration](https://developers.raycast.com/misc/migration) は現在使用しているAPI versionから利用可能なmigrationを検出し、適用後の差分確認を求めています。
 
@@ -98,7 +108,7 @@ Raycast 上の実操作を確認する場合は development mode を起動しま
 npm run dev
 ```
 
-`npm run build` は Raycast CLI による build 検証です。ローカルの Raycast extension 出力先や `raycast-env.d.ts` を作成または更新する可能性があります。
+`npm run build` は Raycast CLI によるdistribution build検証です。明示したrepository-local `dist`へ出力することで、build後のRaycast appへのrefresh通知とapp起動を行いません。`dist`や`raycast-env.d.ts`を作成または更新する可能性があります。
 
 `npm run dev` は Raycast アプリに extension を import して起動します。Raycast アプリがインストールされ、development mode の extension を実行できる環境で使います。
 

@@ -190,7 +190,7 @@ Store publish を開始すると、script はrelease sourceでGitに追跡され
 
 ### 7.4 Dependency and toolchain maintenance
 
-dependencyは、Release workflowから独立したlocal maintenance operationとして `npm run update:dependencies` で更新・検証します。このcommandは、実行中のNode.jsとnpmが`package.json`の`engines`範囲を満たすことを確認し、declared range内のdependency、manifest下限、lockfileを更新し、`@types/node`を解決済み`@raycast/api`のexact runtime contractへ同期して完全検証します。`@types/node`のregistry latestとの差は契約管理として表示し、それ以外のrange外latestはmaintainer decisionとして表示して自動採用しません。Node.jsの選定、install、切り替え、`.node-version`の更新、Git操作、Pull Request、Issue、Release、Raycast Store publicationは行いません。
+dependencyは、Release workflowから独立したlocal maintenance operationとして `npm run update:dependencies` で更新・検証します。通常実行はdeclared range内を更新し、range外majorと `npm run update:dependencies -- --allow-major` を表示します。明示許可実行は全direct major候補を同じnpm resolver graphでlatestへ進め、`@types/node`を採用する`@raycast/api`のexact type contractへ同期し、TypeScript 7以降はlatest CLIとTypeScript 6 tooling APIの公式side-by-side contractを構成して完全検証します。型契約管理対象はselected versionとregistry latestを更新結果のように混在させず、未解決のdependency判断とは別に表示します。Node.jsの選定、install、切り替え、`.node-version`の更新、Git操作、Pull Request、Issue、Release、Raycast Store publicationは行いません。
 
 Release workflowは引き続きRelease sourceに記録された `.node-version` を使用し、release時にlatest Node.jsへ自動追従しません。Node.js selectionはdependency maintenanceと分離し、サポート中のLTS lineであること、同梱npmが`engines.npm`を満たすこと、Build、Release、Store publicationの全経路が成立することを同じ変更単位で確認します。どちらの採用判断も変更内容と検証結果をmaintainerが確認した後に行います。
 

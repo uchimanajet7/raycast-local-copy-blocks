@@ -321,10 +321,10 @@ MdClip は Markdown files を作成、編集、rename、移動、削除しませ
 | Toolchain maintenance     | dependency maintenanceは`engines`範囲だけを前提とし、Node.js選定や`.node-version`更新とは分離する             |
 | Dependency registry       | registry endpointは環境設定を使い、lockfileには`integrity`を保持してregistry固有`resolved` URLを記録しない    |
 | Dependency install script | `allowScripts` で package name 単位に review し、未 review script は install error にする                     |
-| Dependency updates        | non-major grouped候補、major個別判断、Raycast型契約同期、npm解決、後条件、clean install、完全検証を接続する   |
+| Dependency updates        | 通常range内更新、major明示許可、関連contract同期、npm解決、後条件、clean install、完全検証を接続する          |
 | Expected error boundary   | 操作単位の最小理由だけを内部で識別し、固定の利用者向け表示と開発用 console 診断を分離する                     |
 
-application dependencyとGitHub Actionsの定期更新候補は `.github/dependabot.yml` のweekly Dependabot version updatesが提示します。npm patch/minor updatesは一つのgrouped Pull Requestにまとめ、major updatesはdependencyごとの個別Pull Requestとして明示的なmaintainer decisionに残します。Raycast拡張runtimeと結合する`@types/node`はregistry latestへの単独更新から除外し、`@raycast/api`のexact contractと同じ更新単位で扱います。最終的な互換性と採用判断はmaintainerが担当し、自動merge、自動publish、自動releaseを行いません。
+application dependencyとGitHub Actionsの定期更新候補は `.github/dependabot.yml` のweekly Dependabot version updatesが提示します。npm patch/minor updatesは一つのgrouped Pull Requestにまとめ、major updatesはdependencyごとの個別Pull Requestとして明示的なmaintainer decisionに残します。local updaterは通常実行でrange外majorと明示許可commandを表示し、`--allow-major`が指定された場合だけ全direct major候補を同じresolver単位で採用します。`@raycast/api`の型契約と結合する`@types/node`はregistry latestへの単独更新から除外し、`@raycast/api`が要求するexact versionと同じ更新単位で扱います。最終的な互換性と採用判断はmaintainerが担当し、自動merge、自動publish、自動releaseを行いません。
 
 このreleaseでは、`.node-version` にNode.js 24.19.0 Active LTSを選択し、公式配布物に同梱されるnpm 11.17.0をCI、release、Raycast publish helperの共通npmとして使用します。Node.js selectionはlatest Currentへの自動追従ではなく、LTS status、同梱npmのminimum、Raycast API contract、全検証経路をmaintainerが確認して更新します。`package.json`の`engines`は利用可能範囲、`.node-version`は検証する一つの構成という役割を維持します。
 
@@ -332,38 +332,40 @@ application dependencyとGitHub Actionsの定期更新候補は `.github/dependa
 
 最初に実行中のNode.jsとnpmが`package.json`の`engines.node`と`engines.npm`を満たすことを確認します。exact version、LTS line、`.node-version`との一致は要求しません。このcommandはNode.jsの選定、install、切り替え、`.node-version`の更新、global npmの変更を行いません。
 
-続いて、旧update pathが残した修復可能なdirect dependency下限のdriftだけを許可してdependency policyを検査し、現在のlockfileによるclean installを確認します。その他のpolicy違反やclean install不成立は許可しません。dependency rangeを変更する前にlatest公式Raycast migrationを実行し、`npm outdated --json --long`でdirect dependencyの`current`、declared range内の`wanted`、registryの`latest`を記録します。npmはinstall scriptを停止した `npm update --save` でdirect・transitive dependencyを更新・解決し、解決したdirect versionをmanifestとlockfileへ保存します。`strict-peer-deps=true`で不成立の組み合わせを拒否し、installed peer versionによる独自の事前filterは行いません。
+続いて、旧update pathが残した修復可能なdirect dependency下限のdriftだけを許可してdependency policyを検査し、現在のlockfileによるclean installを確認します。その他のpolicy違反やclean install不成立は許可しません。dependency rangeを変更する前にlatest公式Raycast migrationを実行し、`npm outdated --json --long`でdirect dependencyの`current`、declared range内の`wanted`、registryの`latest`を記録します。通常実行はdeclared rangeを維持します。`--allow-major`実行はcontract管理対象を除く全direct major候補をlatestへ一括で進め、採用する`@raycast/api` metadataから`@types/node` contractを先に同期します。その後、install scriptを停止した `npm update --save` を一度だけ実行し、direct・transitive dependencyをnpm resolverの同じgraphとして更新してmanifestとlockfileへ保存します。`strict-peer-deps=true`で不成立の組み合わせを拒否し、installed peer versionによる独自の事前filterは行いません。
 
 root manifestは、MdClipのTypeScript入力が直接使用する`@types/node`と`@types/react`を`devDependencies`として所有します。`@types/node`は解決済み`@raycast/api`がdependencyとoptional peerの両方で宣言する同一のexact versionへ同期し、単独のregistry latest更新は行いません。`@types/react`はroot Reactと同じmajor/minorのcaret rangeで更新します。`csstype`は`@types/react`のtransitive dependencyとして解決し、direct dependencyやoverrideを追加しません。[Raycast changelog 1.46.0](https://developers.raycast.com/misc/changelog#1460---2023-01-18) はNode/React typeをoptional API peer dependenciesとtemplate `devDependencies`へ戻した現在の方針を記録しています。
 
-`@types/node`の同期でmanifestが変わった場合だけ、install scriptを停止した`npm install`を一度実行してlockfileとinstall treeを再解決します。その後、direct dependencyのmanifest下限とresolved versionの一致、処理前からのresolved downgradeがないこと、declared range内に未適用の`wanted`がないことを検査します。`@types/node`のregistry latestとの差はRaycast runtime contractとして別表示し、それ以外のrange外latestだけをmaintainer decisionとして表示します。
+TypeScript 7以降はCLIと従来のprogrammatic APIを分離します。root `@typescript/native` aliasはregistry latestのTypeScript CLIを所有し、`typescript` aliasは`@typescript/typescript6` compatibility packageを指して`@raycast/eslint-config`と`typescript-eslint`へTypeScript 6 APIを提供します。`check:type`の`tsc`はnative compilerを使用し、lint toolingのpeer dependencyはcompatibility packageで満たします。[TypeScript 7 release guidance](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-60) はこのside-by-side構成を公式移行経路として説明しています。
 
-候補確定後は、各direct dependencyのmanifest下限とlockfile resolved versionが一致すること、`current`と`wanted`が一致してdeclared range内の未適用更新がないことを機械検査します。`wanted`と`latest`が異なるmajor等は成功表示へ混ぜず、`Maintainer decision required`としてdependency名とversion差を表示します。その後にdependency policy、clean `npm ci`、通常lint、Raycast build、Raycast lintを同じNode.js processで順番に実行します。`npm ci`はmanifestやlockfileを更新しないため、更新処理ではなく凍結された最終状態の再現性検証として扱います。
+`@types/node`の同期でmanifestが変わった場合だけ、install scriptを停止した`npm install`を一度実行してlockfileとinstall treeを再解決します。その後、direct dependencyとnpm aliasのmanifest下限とresolved versionの一致、同じpackage identityにおける処理前からのresolved downgradeがないこと、declared range内に未適用の`wanted`がないことを検査します。`@types/node`は、選択中のversionとそれを要求するresolved `@raycast/api` versionを一つの文で表示し、registry latestを「意図的に選択しなかったversion」として別の文で表示します。version差に更新を意味する矢印を使わず、この型契約をmaintainer decisionへ分類しません。それ以外のrange外majorは通常実行でmaintainer decisionと明示許可commandを表示し、`--allow-major`実行ではmajor候補が残っていれば失敗します。
+
+候補確定後は、各direct dependencyのmanifest下限とlockfile resolved versionが一致すること、`current`と`wanted`が一致してdeclared range内の未適用更新がないことを機械検査します。通常実行では`wanted`と`latest`が異なるmajorを成功表示へ混ぜず、`Maintainer decision required`と再実行commandを表示します。`--allow-major`実行では全major候補の解消を成功条件に加えます。型契約表示とは別に、未解決のrange外判断がない場合だけ`No unresolved dependency update decisions remain.`と表示します。その後にdependency policy、clean `npm ci`、通常lint、Raycast build、Raycast lintを同じNode.js processで順番に実行します。`npm ci`はmanifestやlockfileを更新しないため、更新処理ではなく凍結された最終状態の再現性検証として扱います。
 
 失敗時はその場で停止し、peer dependency override、強制適用、独自のolder-compatible version探索、自動復元を行いません。既存の未コミット変更と更新途中の変更が同じworking treeに残る場合があるため、maintainerはcommand output、現在のGit diff、migration差分、resolver output、release notesを確認し、変更単位で次の対応を決定します。command自体は変更をstash、commit、reset、restore、破棄しません。runtime dependencyまたはmigrationによるsource変更がある場合だけ、Raycast development modeでprimary user taskを手動確認します。development toolingだけの更新では利用者向け動作に変化がなければGUI確認を必須にしません。
 
 ## 16. Project commands
 
-| Command                       | 役割                                                                            |
-| ----------------------------- | ------------------------------------------------------------------------------- |
-| `npm run check`               | `npm run lint` の既存 alias                                                     |
-| `npm run lint`                | 開発・メンテナンス時の標準検証                                                  |
-| `npm run check:dependencies`  | updater regression、manifest/lockfile後条件、dependency policy検証              |
-| `npm run check:type`          | TypeScript 型検査                                                               |
-| `npm run check:lint`          | Raycast CLI を使わない source ESLint                                            |
-| `npm run check:format`        | managed files の format check                                                   |
-| `npm run check:local`         | Raycast アプリに依存しない repository 固有 verification                         |
-| `npm run lint:raycast`        | Raycast CLI lint                                                                |
-| `npm run build`               | Raycast build validation                                                        |
-| `npm run dev`                 | Raycast development mode                                                        |
-| `npm run demo:setup`          | demo Markdown Sources 作成                                                      |
-| `npm run demo:clean`          | demo Markdown Sources 削除                                                      |
-| `npm run sync:readme-media`   | `metadata/mdclip-1.png` から `media/mdclip-1.png` への media sync               |
-| `npm run format`              | managed files の write-format                                                   |
-| `npm run fix-lint`            | source ESLint 自動修正と write-format                                           |
-| `npm run update:dependencies` | declared-range更新、Raycast型契約同期、range外判断表示、clean install、完全検証 |
-| `npm run migrate`             | latest公式Raycast API migration                                                 |
-| `npm run icon:generate`       | 確認用 icon 生成                                                                |
+| Command                       | 役割                                                                         |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `npm run check`               | `npm run lint` の既存 alias                                                  |
+| `npm run lint`                | 開発・メンテナンス時の標準検証                                               |
+| `npm run check:dependencies`  | updater regression、manifest/lockfile後条件、dependency policy検証           |
+| `npm run check:type`          | TypeScript 型検査                                                            |
+| `npm run check:lint`          | Raycast CLI を使わない source ESLint                                         |
+| `npm run check:format`        | managed files の format check                                                |
+| `npm run check:local`         | Raycast アプリに依存しない repository 固有 verification                      |
+| `npm run lint:raycast`        | Raycast CLI lint                                                             |
+| `npm run build`               | Raycast build validation                                                     |
+| `npm run dev`                 | Raycast development mode                                                     |
+| `npm run demo:setup`          | demo Markdown Sources 作成                                                   |
+| `npm run demo:clean`          | demo Markdown Sources 削除                                                   |
+| `npm run sync:readme-media`   | `metadata/mdclip-1.png` から `media/mdclip-1.png` への media sync            |
+| `npm run format`              | managed files の write-format                                                |
+| `npm run fix-lint`            | source ESLint 自動修正と write-format                                        |
+| `npm run update:dependencies` | declared-range更新、major明示許可、関連contract同期、clean install、完全検証 |
+| `npm run migrate`             | latest公式Raycast API migration                                              |
+| `npm run icon:generate`       | 確認用 icon 生成                                                             |
 
 `npm run publish` は通常 npm script surface に置きません。
 

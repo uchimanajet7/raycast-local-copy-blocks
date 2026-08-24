@@ -10,6 +10,8 @@ const packageLockPath = "package-lock.json";
 const minimumNodeVersion = ">=22.22.2";
 const minimumNpmVersion = ">=11.17.0";
 const allowDirectRangeDriftArgument = "--allow-direct-range-drift";
+const typeScriptCompatibilityPackageName = "@typescript/typescript6";
+const typeScriptNativeAliasName = "@typescript/native";
 const unexpectedArguments = process.argv.slice(2).filter((argument) => argument !== allowDirectRangeDriftArgument);
 const allowDirectRangeDrift = process.argv.includes(allowDirectRangeDriftArgument);
 const expectedNpmrcLines = [
@@ -92,6 +94,11 @@ assert.equal(
   `${packageJsonPath} must expose the established local dependency apply-and-verify task`,
 );
 assert.equal(
+  packageJson.scripts?.build,
+  "ray build -e dist -o dist",
+  `${packageJsonPath} build must use an explicit output directory so Raycast CLI does not launch or refresh the app`,
+);
+assert.equal(
   packageJson.scripts?.migrate,
   "npx --yes @raycast/migration@latest .",
   `${packageJsonPath} migration must run the latest official Raycast migration package non-interactively`,
@@ -163,6 +170,10 @@ const declaredReactTypesRange = packageJson.devDependencies?.["@types/react"];
 const resolvedNodeTypesVersion = packageLock.packages?.["node_modules/@types/node"]?.version;
 const resolvedReactTypesVersion = packageLock.packages?.["node_modules/@types/react"]?.version;
 const resolvedReactVersion = packageLock.packages?.["node_modules/react"]?.version;
+const declaredTypeScriptRange = packageJson.devDependencies?.typescript;
+const declaredNativeTypeScriptRange = packageJson.devDependencies?.["@typescript/native"];
+const resolvedTypeScriptPackage = packageLock.packages?.["node_modules/typescript"];
+const resolvedNativeTypeScriptPackage = packageLock.packages?.["node_modules/@typescript/native"];
 
 assert.equal(
   declaredNodeTypesVersion,
@@ -172,12 +183,12 @@ assert.equal(
 assert.equal(
   rootLockfilePackage?.devDependencies?.["@types/node"],
   expectedNodeTypesVersion,
-  `${packageLockPath} root must record the direct @types/node runtime contract`,
+  `${packageLockPath} root must record the direct @types/node type contract`,
 );
 assert.equal(
   resolvedNodeTypesVersion,
   expectedNodeTypesVersion,
-  `${packageLockPath} must resolve the root @types/node runtime contract`,
+  `${packageLockPath} must resolve the root @types/node type contract`,
 );
 assert.match(
   declaredReactTypesRange ?? "",
@@ -204,6 +215,66 @@ assert.equal(
   undefined,
   `${packageJsonPath} must not override the csstype version selected for @types/react`,
 );
+
+if (declaredNativeTypeScriptRange === undefined) {
+  assert.match(
+    declaredTypeScriptRange ?? "",
+    /^\^\d+\.\d+\.\d+$/,
+    `${packageJsonPath} must use one caret TypeScript dependency before the TypeScript 7 tooling split`,
+  );
+  assert.equal(
+    Number(resolvedTypeScriptPackage?.version?.split(".")[0]) < 7,
+    true,
+    `${packageLockPath} must not resolve TypeScript 7 without its separate compatibility tooling package`,
+  );
+  assert.equal(
+    resolvedNativeTypeScriptPackage,
+    undefined,
+    `${packageLockPath} must not retain an undeclared TypeScript native compiler alias`,
+  );
+} else {
+  assert.match(
+    declaredNativeTypeScriptRange,
+    /^npm:typescript@\^\d+\.\d+\.\d+$/,
+    `${packageJsonPath} must alias @typescript/native to the latest TypeScript CLI line`,
+  );
+  assert.match(
+    declaredTypeScriptRange ?? "",
+    /^npm:@typescript\/typescript6@\^6\.\d+\.\d+$/,
+    `${packageJsonPath} must provide the TypeScript 6 compatibility API under the typescript package name`,
+  );
+  assert.equal(
+    rootLockfilePackage?.devDependencies?.["@typescript/native"],
+    declaredNativeTypeScriptRange,
+    `${packageLockPath} root must record the native TypeScript CLI alias`,
+  );
+  assert.equal(
+    rootLockfilePackage?.devDependencies?.typescript,
+    declaredTypeScriptRange,
+    `${packageLockPath} root must record the TypeScript tooling compatibility alias`,
+  );
+  assert.equal(
+    Number(resolvedNativeTypeScriptPackage?.version?.split(".")[0]) >= 7,
+    true,
+    `${packageLockPath} native TypeScript alias must resolve TypeScript 7 or later`,
+  );
+  assert.equal(
+    Number(resolvedTypeScriptPackage?.version?.split(".")[0]),
+    6,
+    `${packageLockPath} typescript package name must resolve the TypeScript 6 compatibility API`,
+  );
+  assert.equal(
+    resolvedNativeTypeScriptPackage?.bin?.tsc,
+    "bin/tsc",
+    `${packageLockPath} native TypeScript alias must provide the tsc command`,
+  );
+  assert.equal(
+    resolvedTypeScriptPackage?.bin?.tsc6,
+    "bin/tsc6",
+    `${packageLockPath} TypeScript compatibility package must provide the tsc6 command`,
+  );
+}
+
 assert.deepEqual(
   resolvedEntries.map(([packagePath]) => packagePath),
   [],
@@ -246,9 +317,10 @@ const dependencyUpdateCommands = [
   'await execute("npm", ["run", "check:dependencies", "--", "--allow-direct-range-drift"])',
   'await execute("npm", ["ci"])',
   'await execute("npm", ["run", "migrate"])',
-  "await readOutdated(execute)",
+  "const initialOutdated = await readOutdated(execute)",
+  "await prepareMajorDependencyUpdates(repoRootUrl, initialOutdated, execute)",
   "await applyCompatibleDependencyUpdates(execute)",
-  "await alignNodeTypesWithRaycastRuntime(repoRootUrl)",
+  "await alignNodeTypesWithRaycastTypeContract(repoRootUrl)",
   'await execute("npm", ["install", "--ignore-scripts"])',
   "const rangeDrift = getDirectDependencyRangeDrift(packageJson, packageLock)",
   "const directDependencyDowngrades = getDirectDependencyDowngrades(",
@@ -284,7 +356,7 @@ assert.equal(
 assert.equal(
   findAllIndices(dependencyUpdater, 'await execute("npm", ["install", "--ignore-scripts"])').length,
   1,
-  "dependency updates must re-resolve once when the @raycast/api Node type contract changes",
+  "dependency updates must re-resolve once when the @raycast/api type contract changes",
 );
 assert.equal(
   dependencyUpdater.includes("npm-check-updates") ||
@@ -305,10 +377,25 @@ assert.equal(
   "dependency updates must stop instead of silently downgrading a resolved direct dependency",
 );
 assert.equal(
-  dependencyUpdater.includes("runtimeContractManagedDependencies") &&
-    dependencyUpdater.includes("Managed by the @raycast/api runtime contract"),
+  dependencyUpdater.includes("raycastTypeContractManagedDependencies") &&
+    dependencyUpdater.includes("formatRaycastTypeContractStatus") &&
+    dependencyUpdater.includes("No unresolved dependency update decisions remain.") &&
+    !dependencyUpdater.includes("Managed by the @raycast/api runtime contract"),
   true,
-  "dependency updates must separate @types/node contract alignment from registry-latest maintainer decisions",
+  "dependency updates must report the selected @types/node type contract separately from registry latest and unresolved decisions",
+);
+assert.equal(
+  dependencyUpdater.includes('const allowMajorArgument = "--allow-major"') &&
+    dependencyUpdater.includes("applyMajorDependencyDeclarations") &&
+    dependencyUpdater.includes("npm run update:dependencies -- --allow-major"),
+  true,
+  "dependency updates must connect every reported major-version decision to one explicit apply-and-verify action",
+);
+assert.equal(
+  dependencyUpdater.includes(typeScriptCompatibilityPackageName) &&
+    dependencyUpdater.includes(typeScriptNativeAliasName),
+  true,
+  "TypeScript major updates must preserve the compiler and lint-tooling relationship through the official split",
 );
 assert.equal(
   dependencyUpdater.includes("--legacy-peer-deps") ||
@@ -334,7 +421,7 @@ assert.equal(
 assert.equal(
   dependabot.includes('dependency-name: "@types/node"'),
   true,
-  "Dependabot must not update @types/node independently of the @raycast/api runtime contract",
+  "Dependabot must not update @types/node independently of the @raycast/api type contract",
 );
 
 const workflowPaths = (await readdir(".github/workflows"))
